@@ -5,8 +5,11 @@ module Parser(
 
 import Grammar
 
-import Text.ParserCombinators.ReadP
+import Data.Array(listArray, assocs)
+import Data.Map(Map, empty, insert, member)
+import Data.List(foldl')
 
+import Text.ParserCombinators.ReadP
 
 parse :: String -> Program
 parse text =
@@ -80,21 +83,32 @@ headerP = do
   (fid, ids) <- signatureP
   return $ Header fid ids
 
-signatureP :: ReadP (FunctionId, List1 Id)
+signatureP :: ReadP (FunctionId, Args)
 signatureP = do
   fid <- functionIdP
   charToken '('
   ids <- list1SepByP idP (charToken ',')
+  let args = Args ids
   charToken ')'
-  return $ (fid, ids)
+  return $ (fid, args)
 
 bodyP :: ReadP Body
 bodyP = do
   charToken '['
-  ins <- list1P instructionP
+  ins <- sepBy1 instructionP (optional $ charToken ',')
+  let insArray = listArray (1, length ins) ins
+  let labels = foldl' insertLabel empty (assocs insArray)
   charToken ']'
-  return $ Body ins
+  return $ Body insArray $! labels
 
+insertLabel :: (Map LabelId Int) -> (Int, Instruction) -> (Map LabelId Int)
+insertLabel s (i, ins) =
+  case ins of
+    Label l ->
+      if member l s
+      then error $ "Label " ++ (show l) ++ " occurs more than once!"
+      else insert l i s
+    _ -> s
 
 labelP :: ReadP Instruction
 labelP = do
@@ -131,8 +145,8 @@ assignLoadP i = do
 assignCallP :: Id -> ReadP Instruction
 assignCallP i = do
   skipToken "CALL"
-  (fid, ids) <- signatureP
-  return $ AssignCall i fid ids
+  (fid, args) <- signatureP
+  return $ AssignCall i fid args
 
 
 assignBinopP :: Id -> ReadP Instruction
@@ -184,7 +198,7 @@ ifThenElseP = do
   return $ IfThenElse i r a l1 l2
 
 instructionP :: ReadP Instruction
-instructionP = labelP <++ assignP <++ storeeP <++ gotoP <++ returnP <++ ifThenElseP
+instructionP = labelP <++ assignP <++ storeP <++ gotoP <++ returnP <++ ifThenElseP
 
 functionIdP :: ReadP FunctionId
 functionIdP = do
