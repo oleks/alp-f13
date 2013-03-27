@@ -98,7 +98,7 @@ clauseP = do
   return $ Clause l rs
 
 valueP :: ReadP Value
-valueP = variableP <++ functionSymbolP
+valueP = variableP <++ symbolP
 
 tailChars :: [Char]
 tailChars = ['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9'] ++ "_"
@@ -106,13 +106,13 @@ tailChars = ['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9'] ++ "_"
 variableP :: ReadP Value
 variableP = do
   name <- stringof ['A'..'Z'] tailChars
-  return $ Value name []
+  return $ Variable name
 
-functionSymbolP :: ReadP Value
-functionSymbolP = do
+symbolP :: ReadP Value
+symbolP = do
   name <- stringof (['a'..'z'] ++ ['0'..'9']) tailChars
   ps <- parametersP <++ return []
-  return $ Value name ps
+  return $ Symbol name ps
 
 parametersP :: ReadP [Value]
 parametersP = do
