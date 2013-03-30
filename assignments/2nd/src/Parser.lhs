@@ -98,7 +98,16 @@ clauseP = do
   return $ Clause l rs
 
 valueP :: ReadP Value
-valueP = variableP <++ symbolP <++ listP
+valueP = do
+  v1 <- variableP <++ symbolP <++ listP <++ parenValueP
+  do { charToken '='; v2 <- valueP; return $ Eq v1 v2 } <++ return v1
+
+parenValueP :: ReadP Value
+parenValueP = do
+  charToken '('
+  v <- valueP
+  charToken ')'
+  return v
 
 listP :: ReadP Value
 listP = do
