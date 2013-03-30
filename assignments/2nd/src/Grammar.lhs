@@ -3,6 +3,7 @@
 \begin{code}
 module Grammar(
     Value(..)
+  --, Limb(..)
   , Clause(..)
   , Program(..)
   , Goal
@@ -13,13 +14,37 @@ module Grammar(
 import Data.Map(Map)
 import Data.List(intercalate)
 
-data Value = Variable String | Symbol String [Value]
+{-
+data Limb = Infinite String | Nil
+  deriving (Eq)
+instance Show Limb where
+  show (Infinite s) = "|" ++ s
+  show _ = ""
+-}
+
+data Value
+  = Variable String
+  | Symbol String [Value]
+--  | List [Value] Limb
+  | Eq Value Value
   deriving (Eq)
 instance Show Value where
   show (Variable v) = v
+  show (Symbol "_nil" []) = "[]"
+  show (Symbol "_cons" [x,xs]) =
+    "[" ++ (show x) ++ (show1 xs) ++ "]"
+    where
+      show1 (Variable tn) = "|" ++ tn
+      show1 (Symbol "_cons" [z, zs]) = "," ++ (show z) ++ (show1 zs)
+      show1 (Symbol "_nil" []) = ""
+      show1 v = show v
   show (Symbol x []) = x
   show (Symbol x vs) =
     x ++ "(" ++ (intercalate ", " $ map show vs) ++ ")"
+{-  show (List es l) =
+    "[" ++ (intercalate ", " $ map show es) ++ (show l) ++ "]"-}
+  show (Eq v1 v2) =
+    (show v1) ++ " = " ++ (show v2)
 
 data Clause = Clause Value [Value]
   deriving (Eq)

@@ -98,7 +98,25 @@ clauseP = do
   return $ Clause l rs
 
 valueP :: ReadP Value
-valueP = variableP <++ symbolP
+valueP = variableP <++ symbolP <++ listP
+
+listP :: ReadP Value
+listP = do
+  charToken '['
+  l <- list1P <++ nil
+  charToken ']'
+  return l
+
+list1P :: ReadP Value
+list1P = do
+  v <- valueP;
+  vs <- do { charToken ','; list1P; } <++
+      do { charToken '|'; variableP } <++
+      nil
+  return $ Symbol "_cons" [v, vs]
+
+nil :: ReadP Value
+nil = return $ Symbol "_nil" []
 
 tailChars :: [Char]
 tailChars = ['A'..'Z'] ++ ['a'..'z'] ++ ['0'..'9'] ++ "_"

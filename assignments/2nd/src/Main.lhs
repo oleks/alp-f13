@@ -3,7 +3,7 @@ module Main where
 
 import Grammar
 import Parser
-import Resolution
+import Resolver
 
 import System.Environment
 import System.IO(hFlush, stdout)
