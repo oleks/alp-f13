@@ -1,16 +1,39 @@
+\section{Parser}
+
+The parser is implemented by transforming the grammar defined in \cite[Section
+3.2 (p.  36)]{torben} into a parsing expression grammar, and implementing the
+parser using the \texttt{ReadP} parser combinator. The code is relatively
+straight-forward once in is informed that the \texttt{(<++)} operator is a
+choice operator that only considers the parser to the right if the parser to
+the left fails.
+
+\begin{code}
 module Parser(
   parse,
   parseFile
 ) where
+\end{code}
 
+\ignore{
+\begin{code}
 import Grammar
+\end{code}
 
+\begin{code}
 import Data.Array(listArray, assocs)
 import Data.Map(Map, empty, insert, member)
 import Data.List(foldl')
 
 import Text.ParserCombinators.ReadP
+\end{code}
+}
 
+\subsection{Exported functions}
+
+The user can either parse a program in a string or a program stored at a given
+path.
+
+\begin{code}
 parse :: String -> Program
 parse text =
   case readP_to_S programP text of
@@ -21,7 +44,14 @@ parseFile :: FilePath -> IO Program
 parseFile filepath = do
   text <- readFile filepath
   return $ parse text
+\end{code}
 
+\subsection{Auxiliary parser combinators}
+
+A couple generically useful parser combinators, extending the functionality of
+\texttt{ReadP}.
+
+\begin{code}
 skip :: ReadP a -> ReadP ()
 skip p = do
   _ <- p
@@ -56,7 +86,14 @@ stringof cs1 cs2 = token $ do
     c <- charof cs1
     cs <- many $ charof cs2
     return $ c : cs
+\end{code}
 
+\subsection{\texttt{List1} parser combinators}
+
+The following correspond to the \texttt{many1} and \texttt{sebBy1} parser
+combinators for lists, respectively.
+
+\begin{code}
 list1P :: ReadP a -> ReadP (List1 a)
 list1P p = do
   v <- p
@@ -66,7 +103,11 @@ list1SepByP :: ReadP a -> ReadP sep -> ReadP (List1 a)
 list1SepByP p sep = do
   v <- p
   do { _ <- sep; vs <- list1SepByP p sep; return $ Head v vs } <++ (return $ Limb v)
+\end{code}
 
+\subsection{IL parser combinators}
+
+\begin{code}
 programP :: ReadP Program
 programP = do
   fs <- list1P functionP
@@ -77,12 +118,16 @@ functionP = do
   h <- headerP
   b <- bodyP
   return $ Function h b
+\end{code}
 
+\begin{code}
 headerP :: ReadP Header
 headerP = do
   (fid, ids) <- signatureP
   return $ Header fid ids
+\end{code}
 
+\begin{code}
 signatureP :: ReadP (FunctionId, Args)
 signatureP = do
   fid <- functionIdP
@@ -91,7 +136,9 @@ signatureP = do
   let args = Args ids
   charToken ')'
   return $ (fid, args)
+\end{code}
 
+\begin{code}
 bodyP :: ReadP Body
 bodyP = do
   charToken '['
@@ -100,16 +147,21 @@ bodyP = do
   let labels = foldl' insertLabel empty (assocs insArray)
   charToken ']'
   return $ Body insArray $! labels
+\end{code}
 
+\begin{code}
 insertLabel :: (Map LabelId Int) -> (Int, Instruction) -> (Map LabelId Int)
 insertLabel s (i, ins) =
   case ins of
     Label l ->
       if member l s
-      then error $ "Label " ++ (show l) ++ " occurs more than once!"
+      then
+        error $ "Label " ++ (show l) ++ " occurs more than once!"
       else insert l i s
     _ -> s
+\end{code}
 
+\begin{code}
 labelP :: ReadP Instruction
 labelP = do
   skipToken "LABEL"
@@ -148,7 +200,6 @@ assignCallP i = do
   (fid, args) <- signatureP
   return $ AssignCall i fid args
 
-
 assignBinopP :: Id -> ReadP Instruction
 assignBinopP r = do
   i <- idP
@@ -184,7 +235,6 @@ returnP = do
   i <- idP
   return $ Return i
 
-
 ifThenElseP :: ReadP Instruction
 ifThenElseP = do
   skipToken "IF"
@@ -196,10 +246,16 @@ ifThenElseP = do
   skipToken "ELSE"
   l2 <- labelIdP
   return $ IfThenElse i r a l1 l2
+\end{code}
 
+\begin{code}
 instructionP :: ReadP Instruction
 instructionP = labelP <++ assignP <++ storeP <++ gotoP <++ returnP <++ ifThenElseP
+\end{code}
 
+\subsection{Identifiers}
+
+\begin{code}
 functionIdP :: ReadP FunctionId
 functionIdP = do
   cs <- genericIdP
@@ -218,17 +274,25 @@ idP = do
 genericIdP :: ReadP String
 genericIdP =
   stringof (['a'..'z'] ++ "_")  (['a'..'z'] ++ ['0'..'9'] ++ "_")
+\end{code}
 
-numP :: ReadP Int
-numP = do
-  cs <- stringof ['0'..'9'] ['0'..'9']
-  return $ read cs
+\subsection{Atoms}
 
+\begin{code}
 atomP :: ReadP Atom
 atomP =
   do { i <- idP; return $ AtomId i } <++
     do { num <- numP; return $ AtomNum num }
 
+numP :: ReadP Int
+numP = do
+  cs <- stringof ['0'..'9'] ['0'..'9']
+  return $ read cs
+\end{code}
+
+\subsection{Unary, binary and relational operators}
+
+\begin{code}
 unopP :: ReadP Unop
 unopP
   = tokenV "~" Neg
@@ -244,9 +308,10 @@ binopP
 
 relopP :: ReadP Relop
 relopP
-  = tokenV "=" Eq   <++
-    tokenV "≠" Neq  <++
-    tokenV "<" Lt   <++
-    tokenV ">" Gt   <++
-    tokenV "≤" Leq  <++
-    tokenV "≥" Geq
+  = tokenV "="  Eq  <++
+    tokenV "!=" Neq <++
+    tokenV "<=" Leq <++
+    tokenV ">=" Geq <++
+    tokenV "<"  Lt  <++
+    tokenV ">"  Gt
+\end{code}

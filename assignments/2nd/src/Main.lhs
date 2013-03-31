@@ -1,13 +1,21 @@
+\section{Main}\label{section:main}
+
 \begin{code}
 module Main where
+\end{code}
 
+\ignore{
+\begin{code}
 import Grammar
 import Parser
 import Resolver
 
 import System.Environment
 import System.IO(hFlush, stdout)
+\end{code}
+}
 
+\begin{code}
 main :: IO ()
 main = do
   args <- getArgs
@@ -18,11 +26,11 @@ main = do
 
 interpret :: String -> IO ()
 interpret path = do
-  program <- parseProgramFile path
+  program <- parseModuleFile path
   putStrLn $ show program
   prompt program
 
-prompt :: Program -> IO ()
+prompt :: Module -> IO ()
 prompt program = do
   putStr "?- "
   hFlush stdout
@@ -49,5 +57,4 @@ showResult (e : es) = do
     _ -> do
       putStrLn ""
       return ()
-
 \end{code}

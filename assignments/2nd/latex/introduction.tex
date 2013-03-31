@@ -1,0 +1,12 @@
+This report is written in Literate Haskell, documenting a Haskell
+implementation of an interpreter for a subset of Prolog, referred to as Pl. The
+Pure Prolog part is complete, but certain extensions are unfortunately lacking.
+In particular, cuts are only partially implemented, and negation as failure
+\emph{is absent}. Negation as failure is however discussed throughout the
+report, arguing for how it could be implemented.
+
+We first describe the grammar used in \referToSection{grammar}. In
+\referToSection{parser} we describe a parser for parsing modules and queries.
+In \referToSection{main} we describe the main program and how to interact with
+the interpreter. In \referToSection{testing} we discuss the tests that were
+conducted. The busy reader can safely skip \referToSection{parser}.

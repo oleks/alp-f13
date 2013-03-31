@@ -1,4 +1,4 @@
-\section{Grammar}
+\section{Grammar}\label{sec:grammar}
 
 The module \texttt{Grammar} defines the value types of the IL grammar and its
 various components.
