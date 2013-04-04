@@ -1,0 +1,136 @@
+\tableofcontents
+
+\section{Motivation}
+
+\begin{itemize}
+
+\item Programs tend to spend most of their time in loops.
+
+\item A loop is a program unit (body) that is repeatedly executed, having a
+single entry point:
+
+\begin{itemize}
+
+\item Any path from the start of a function to the body of a loop goes through
+the entry point of the loop.
+
+\item From any path in the body of the loop, there is a path to the entry point
+of the loop.
+
+\end{itemize}
+
+\end{itemize}
+
+\section{Code Hoisting}
+
+\begin{itemize}
+
+\item Loop-invariant computations.
+
+\item Lifting such computations outside the loop is \emph{code hoisting}.
+
+\item Available assignment did something similar, but if computed with a loop,
+common subexpression elimination has no previous assignment available to make
+this conclusion.
+
+\item Moving or copying the instruction to a place before the loop also causes
+the value to be computed even if the loop is a 0-trip.
+
+\item In addition to loop invariant, the instruction must also be valid, even
+if the condition guarding the loop is not satisified, this could be important
+wrt.  e.g. memory access.
+
+\item One viable solution is to unroll the loop once (while -> if-while).
+
+\item Assuming that we subsequently perform common subexpression elimination,
+this is enough to perform code hoisting.
+
+\item This is easy enough at the source code level, but can be a little
+challenging at the level of the intermediate code, care must be taken of jumps.
+
+\end{itemize}
+
+\section{Memory Prefetching}
+
+\begin{itemize}
+
+\item Modern processors have memory prefetch instructions. They do not fail if
+the adress is invalid, but load an address into memory so that when the time
+comes to use it, the processor need not wait around, but simply fetch it from
+the cache.
+
+\item We can transform a loop to prefetch a bank of memory (say 4 words), while
+we're working on the previous bank. The numer 4 may vary depending on the size
+of the loop.
+
+\item This also require a test to ensure that the next bank is only loaded once
+on entry to a new bank, this test can be mitigated for by loop unrolling, but
+be vary of code explosion.
+
+\end{itemize}
+
+\section{Incrementalisation}
+
+\begin{itemize}
+
+\item General idea: replace $f(x + \delta)$ using $f(x)$ and $\delta$.
+
+\item For instance $(x+1)^2=x^2+2x+1$, so it can be done by computing $v=x^2$
+and $v+x+x+1$ or even $v+(x<<1)+1$.
+
+\item Also known as \emph{reduction in strength}, as it reduces the complexity
+of an operation.
+
+\item We must take care to introduce arithemtic overflow in much the same
+fashion as the original code.
+
+\item If operating on floating point, rounding errors are also worth
+consideration.
+
+\item Another example is array index calculation, so if we know the address
+$a[i][j]$, we can quickly compute the address of $a[i+1][j]$, if we know the
+first size dimension (in bytes) of the nested array.
+
+\item Rules:
+
+\begin{itemize}
+
+\item Code in consideration (clear definition, typically a loop or the body of
+a function.
+
+\item Loop counter is a variable of either the form $i:=c$ or $i:=i+k$, where
+neither $c$ or $k$ are changed anywhere in the code under consideration.
+
+\item A variable derived from a loop counter is a variable that has a single
+assignment in the code in consideration of the form $x:=y+k$ or $x:=y*k$, where
+$k$ is not changed in the code in consideration, and $y$ is either a loop
+counter or another variable derived from a loop counter. $x$ must be dead on
+entry to the code under consideration, and dead on exit. No assignment to $i$
+can happen between the declaration of the variale and its use.
+
+\end{itemize}
+
+\item A variable $x$ derived from a loop counter $i$ will have the form
+$i*p+q$, where $p$ and $q$ are not changed in code under consideration.
+
+\begin{align}
+x:=i+k & x = i*1 + k \\
+x:=i*k & x = i*k + 0 \\
+x:=y+k \wedge y=i*p+q & x = i*p+(q+k) \\
+x:=y*k \wedge y=i*p+q & x = i*(pk)+(qk)
+\end{align}
+
+\item $q+k$, $pk$ and $qk$ can be precomputed, as their values do not change in
+the code under consideration.
+
+\item if $x:=i*p+q$ then if $i:=c$, replace it with $x:=(pc)+q$, if $i:=i+k$,
+replace it with $x:=x+(pk)$. ($pk$ and $pc$ can be precomputed). If $i$ is live
+on entry, add $x:=i*p+q$ before init.
+
+\item if $k$ doesn't change in the code under consideration, we can also
+replace a test $i<k$ with $x<(pk)+q$ if $p>0$ and $x>(pk)+q$ if $p<0$. If $p=0$
+or the sign is unknown, we can't make the replacement.
+
+\item similar replacements for other relations. ($pk+q$ can also be precombputed).
+
+\end{itemize}
