@@ -1,0 +1,33 @@
+\documentclass[a4paper]{article}
+
+\usepackage[fancy]{template}
+\usepackage{survival-pack}
+\usepackage{tikz}
+\usetikzlibrary{automata}
+
+\usepackage{subfigure}
+
+\setup{%
+  subject={Advanced Language Processing},%
+  assignment={Functions},%
+  date={April 10th, 2013.}%
+}
+\setupLocation[short=DIKU]%
+{Datalogisk institut, Copenhagen University}
+\setupAuthor[%
+  addendum={\mono{oleks@diku.dk}}%
+]{Oleksandr Shturmov}
+
+\newcommand{\powerset}[1]{\ensuremath{\mathcal{P}\p{#1}}}
+\newcommand{\mt}[1]{\ensuremath{\mathtt{#1}}}
+\newcommand{\ms}[1]{\ensuremath{\mathtt{#1}^*}}
+\newcommand{\ch}[1]{\ensuremath{\mathcal{CH}\p{#1}}}
+
+\begin{document}
+
+\maketitle
+\thispagestyle{first}
+
+\input{definition}
+
+\end{document}

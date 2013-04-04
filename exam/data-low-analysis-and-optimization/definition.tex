@@ -1,0 +1,370 @@
+\tableofcontents
+
+\begin{description}[\setleftmargin{20pt}\setlabelstyle{\bf}\breaklabel]
+
+\item [Program point] a particular intruction in the program source code.
+
+\end{description}
+
+\section{Motivation}
+
+\begin{itemize}
+
+\item First we analyze the code to see if an optimization can take place, then
+we can opimize the code by replacing longer or more complex structures by
+shorter or simpler ones.
+
+\end{itemize}
+
+\section{Data-flow Analysis}
+
+\begin{itemize}
+
+\item Analysis of the flow of data throughout a program.
+
+\item Approximation of values or value sizes, information about whether a piece
+of code has any observable effect.
+
+\item (Dead-code elimination is a control-flow analysis.)
+
+\item The answers are often undecidable, so the task of the analysis is to make
+a safe approximation.
+
+\end{itemize}
+
+
+\section{Design}
+
+\begin{itemize}
+
+\item Identify oppotunities for optimization.
+
+\item Pieces of code are often compiled independently, analyses are therefore
+often local.
+
+\item Analyses can benefit from global scope, but such analyses are often
+costly.
+
+\item We must take care that the optimization have no side effects in the rest
+of the program.
+
+\end{itemize}
+
+\subsection{Liveness analysis}
+
+\begin{itemize}
+
+\item A value need only be stored as long as it is used.
+
+\item Processors have a limited number of registers, so efficient use of those
+registers is desired.
+
+\item Can also be used to eliminate the computation of values that are never
+used.
+
+\item The analysis identifies for each program statement the set of live and
+dead variables, where live variables may be used in a subsequent program
+statement, but dead variables most definitely will not.
+
+\item $gen[i]$: if an instruction \emph{uses} a variable, it is live
+before the instruction commences.
+
+\item $kill[i]$: if an instruction \emph{assigns} a variable, is is dead before
+the instruction commences, unless the variable is used in the assignment.
+
+\item (propagation 1) if a variable is live at the end of an instruction, it is also
+live at the start of the instruction, unless it is killed.
+
+\item (propagation 2) a variable is list at the end of an instruction, if it is
+live at the start of any of the succeeding instructions.
+
+\item succeeding instructions are either those that follow immediately, or
+those that are jumped to conditionally or unconditionally.
+
+\item
+
+\begin{align}
+in[i] &= gen[i] \cup \p{ out[i] \setminus kill[i] }\\
+out[i] &= \bigcup_{j\in succ[i]} in[j]
+\end{align}
+
+\item We solve these equations by fixed-point iteration: initialize $in[i]$ and
+$out[i]$ to empty sets and repeat their calculation until no changes occur.
+
+\item Since there is a finite number of instructions and a finite number of
+variables in a program, this will eventually terminate.
+
+\item The order of $i$ (and $in[i]$ and $out[i]$) when we calculate $in[i]$ and
+$out[i]$ for the entire program does not matter for the final solution, but it
+may influence the complexity of the analysis.
+
+\item Information in liveness analysis flows backwards through the program, so
+considering instructions in reverse order would be beneficial.
+
+\item Parameters should always be live at the first instruction of a function,
+if not the parameter is superflous, or converesely, the variable is not
+initialized before use.
+
+\item If $x$ is dead after $x:=e$, and $e$ has no side effects, $x:=e$ can be
+eliminated from the program text. If $x$ is dead after $x:=e;y:=z+x$, this can
+be shortened to $y:=z+e$, etc.
+
+\item If $x$ is dead after $x:=y+z$, the analysis tells us to eliminate the
+assignment, but it generated liveness for $y$ and $z$. We have to redo the
+analysis to ensure that $y$ and $z$ are eliminated if possible.
+
+\item This is cascading effect is common: an optimization can trigger other
+optimizations.
+
+\item We'd like to reduce this to a single analysis; for liveness this is
+\emph{storng liveness}.
+
+\item A variable is \emph{weakly dead} at a program point, if beyond that
+program point, the only uses of $x$ are in assignments to weekly dead
+variables. A variable becomes weekly dead when an assignment to it can be
+safely eliminated.
+
+\item For $x:=e$, where $e$ has no side-effects we modify the above formula as
+follows:
+
+\begin{align}
+in[i]=\left\{
+  \begin{array}{ll}
+    gen[i] \cup \p{ out[i] \setminus kill[i] }, & \text{if}\ x \in out[i] \\
+    out[i], &\text{otherwise}
+  \end{array}
+\right.
+\end{align}
+
+\item Register allocation cannot be performed before $x:=e$, where $e$ has no
+side effects, and $x$ is weekly dead, have been eliminated, otherwise proceed
+as usual.
+
+\end{itemize}
+
+\section{Generalization}
+
+\begin{itemize}
+
+\item For each instruction determine $succ[i]$ or $prev[i]$.
+
+\item For each type of instruction, decide $gen[i]$ and $kill[i]$ sets, these
+consist of variables, instructions, expressions, or other descriptors.
+
+\item Determine the recursive definitions of $in[i]$ and $out[i]$.
+
+\item Initialize $in[i]$ and $out[i]$; depending on the analysis this may mean
+to initialize them to empty sets to be expanded (minimal solution), or the
+maximum sets to be reduced (maximal solution).
+
+\item Perform fixed-point iteration; consider every instruction in order
+multiple times until no changes occur; the order in which instructions should
+be considered depends on the analysis.
+
+\end{itemize}
+
+\section{Common Subexpression Elimination}
+
+\begin{itemize}
+
+\item Forward analysis (the roles of $in[i]$ and $out[i]$ are reversed).
+
+\item Maintains: available assignments at every program point.
+
+\item An assignment makes itself available \emph{unless} the variable on the
+left-hand side also occurs ont the right hand side. (A latter assignment to the
+same expression would lead to a different value.)
+
+\item An assignment $x:=e$ invalidates \emph{all} assignments where $x$ occurs
+(on either side).
+
+\item Any store instructions kills \emph{all} available load instructions.
+
+\item
+
+\begin{align}
+out[i] &= gen[i] \cup \p{ in[i] \setminus kill[i] } \\
+in[i] &= \bigcap_{j\in pred[i]} out[j]
+\end{align}
+
+\item $in[i]$ and $out[i]$ are initialized to the set of \emph{all} assignments
+in the program, these sets are latter reduced (consider the matter of the
+intersection and loops).
+
+\item if instruction $i$ has the form $x:=e$, and it has available the
+assignment $y::=e$, the instruction can be replaced by $x:=y$.
+
+\item Downsides
+
+\begin{itemize}
+
+\item An optimization might introduce possibility of new optimizations, for
+instance $a:=b+c;c:=b+e$ where $c=e$; one way to solve this is to keep track of
+sets of variables with the same value.
+
+\item The intersection between $x:=a+b$ and $y:=a+b$ is empty; one way to solve
+this is to rename $x$ and $y$ to $aplusb$.
+
+\end{itemize}
+
+\end{itemize}
+
+\section{Index-Check Elimination}
+
+\begin{itemize}
+
+\item Eliminate redundant index checks, where either outcome is guaranteed by
+other constraints of the program.
+
+\item Keep track of the set of inequalities that hold at every program point.
+
+\item Conditional branches generate conditions (as do e.g. range specifications
+in various languages).
+
+\item The set of all inequalities in a program gives us a universe of
+inequalities: at each program point we'd like to know which inequalities hold.
+
+\item Conditional branches imply which inequalities hold (and which don't) in
+the successing instruction.
+
+\item An assignment to a variable removes all inequalities that hold for that
+variable, except if the assignment is to a constant, in which case some of the
+inequalities may be maintained; also if $x$ increases, we invalidate all bounds
+from above, but keep all bounds from below; we can make this even more precise
+if we wish.
+
+\item If at an if-then-else instruction, the active conditions imply that the
+condition holds (or doesn't), the instruction can be eliminated.
+
+\item The order of evaluation does not seem to matter, but a forwards direction
+seems most natural.
+
+\end{itemize}
+
+\section{Jump-to-Jump elimination}
+
+\begin{itemize}
+
+\item For each jump find its ultimate destination.
+
+\end{itemize}
+
+\section{Resources}
+
+\begin{itemize}
+
+\item For most analyses, the size of the sets is proportional to the size of
+the code, so $O(n^2)$; e.g. a set of variables or conditions in the program.
+
+\item One optimal representation of sets is bit vector, where each vector has a
+bit for each element of the global universe of sets; union and intersection is
+trivial.
+
+\item This is only efficient for analyses where the sets tend to be large
+(liveness and common subexpression are not such analyses).
+
+\item Another option is compressed bit vectors, which are the more efficient
+except for very small sets.
+
+\item A single iteration normally roughly takes time proportional to the size
+of the $in[i]$ and $out[i]$ set sof every program, so $O(n^2)$; at most only a
+single instruction generates an update, but all instructions need an update, so
+the complexity is $O(n^4)$.
+
+\item One way to mitigate this, is to consider the instructions in the order
+that the data flows.
+
+\item The best implementation is therefore a work-list algorithm, where every
+step generates a series of steps that most certainly need to be performed after
+the current step; start with all instructions in the work list.
+
+\item Typically, the number of iterations can be reduced to below 10.
+
+\item However, this only reduces the number of iterations, each iteration may
+still take $O(n^2)$ time.
+
+\item This is why we often only restrict ourselves to one function at a time;
+the average size of a function is independent of the program size (after all,
+functions should be comprehensible to humans); this reduces to roughly $O(n)$. 
+
+\item Some analyses need to be done across function borders, such as the next.
+
+\end{itemize}
+
+\section{Pointer Analysis}
+
+\begin{itemize}
+
+\item When will two pointers definitely not point to the same location in
+memory?
+
+\item Pointers are often passed between functions, so the analysis should cross
+function boundaries.
+
+\item Pointers to memory allocated at different points in the program, cannot
+point to the same addres.
+
+\item Pointer arithmetic... but going outside the bounds of the allocated space
+is often left undefined, so this can be said to be safe.
+
+\item malloc.. the size of the allocation is irrelevant, the address of the
+instruction can be used to identify the pointers that point to this (or offset
+from here) locations.
+
+\item the offset locations may individually not point to the same location
+within the allocated space, but we relax this and say that pointers to memory
+allocated at the same time can potentially overlap.
+
+\item A program point may be reached multiple times during execution, so the
+address of the instruction is not sufficient; we ignore this.
+
+\item We store tuples $(x,p)$ in $in[i]$, indicating that a variable $x$ points
+to a location allocated at program point $p$.
+
+\item We also keep a global set $Mem$ of pairs $(q,p)$ indicating that the
+value at location $q$ may point to a location addressing memory allocated at
+program point $p$.
+
+\item We also keep globals sets $A$ (triples: function, argument number,
+program point), and $R$ (tuples: function, program point), for the
+interprocedural part, indicating the obvious.
+
+\item The first instruction of each function gets the special in set which
+allocates a variable from the $A$ set, otherwsie it is just the union of the
+out sets of the predecessors.
+
+\item out sets are a bit more complicated, but the general idea is that the
+variables that are used as indices into memory get the appropriate binding, as
+do variables that contain values read from memory; this starts with alloc.
+
+\item This analysis allows us to do a more precise common subexpression
+elimination.
+
+\item Downsides:
+
+\begin{itemize}
+
+\item Different calls to the same function are not separate.
+
+\item Different pointers to the same region are not separate.
+
+\end{itemize}
+
+\end{itemize}
+
+\section{Limitations}
+
+\begin{itemize}
+
+\item Data-flow analyses are approximations, they don't necessarily reflect
+what will happen at runtime, and hence by definition are suboptimal.
+
+\item The halting problem gets in the way.
+
+\item Often the quality of an analysis is a decision between precision and
+resources.
+
+\item Law of deminishin returns: once most cases are optimized, there is little
+use in throwing more resources at the analysis.
+
+\end{itemize}

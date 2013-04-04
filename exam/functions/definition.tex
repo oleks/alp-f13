@@ -1,0 +1,439 @@
+\tableofcontents
+
+\begin{description}[\setleftmargin{20pt}\setlabelstyle{\bf}\breaklabel]
+
+\item [lol]
+
+\end{description}
+
+\section{Motivation}
+
+\begin{itemize}
+
+\item The functions in IM are flatly scoped (there is only one global scope);
+function cannot be stored and passed as values.
+
+\item Introduce indirect calls (ICALL), where the function name is stored in a
+variable rather than given as a constant identifier.
+
+\item In machine language we'd just store a constant address in a register
+(memory).
+
+\item If a processor has no branch and link, we can implement this by storing
+the program counter, and storing the jumped to address in the program counter.
+
+\end{itemize}
+
+\section{Summary of translation}
+
+\begin{itemize}
+
+\item Functions use register to store variables, if the set of registers is
+insufficient, we spill onto the stack.
+
+\item We split the processor registers into \emph{caller}-saves and
+\emph{callee}-saves.
+
+\item A function body is transformed to have a \emph{prelude}.
+
+\begin{itemize}
+
+\item Function label.
+
+\item Allocate space on the stack of the local variables.
+
+\item Store callee-saves register, and perhaps return address.
+
+\item Transfer parameter to local variables.
+
+\end{itemize}
+
+\item A return instruction is transformed into an \emph{epilogue}
+
+\begin{itemize}
+
+\item Code for transferring the return value from local variables to
+appropriate registers or stack.
+
+\item Restore callee saves registers, and perhaps return address.
+
+\item Free up space used for local variables.
+
+\item Return to the return address.
+
+\end{itemize}
+
+\item A function call is transformed into a \emph{call sequence}.
+
+\begin{itemize}
+
+\item Save \emph{live} variables stored in the caller-savers registers.
+
+\item Code for transferring the parameters from local variables to the
+registers or stack locations used to pass parameters to the callee.
+
+\item Code for storing the return address and jumping to the callee.
+
+\item
+
+\item Code for transferring the return value from the register or stack to
+local variables.
+
+\item Restore local variables saved in caller-saves registers.
+
+\end{itemize}
+
+\item Each type of processor typically has its own procedure call standard.
+
+\end{itemize}
+
+\section{C-style functions}
+
+\begin{itemize}
+
+\item All function declarations occur at the top level.
+
+\end{itemize}
+
+\section{Nested function declarations}
+
+\begin{itemize}
+
+\item Pascal.
+
+\item f has g has h, f can call g, but not h, h can call both g and f; static
+scoping.
+
+\item The above prologue, epilogue, call sequence trio don't fit this paradigm;
+however this works seamlessly at the typechecker level.
+
+\item We can rewrite the nested function declarations to top-level function
+declarations.
+
+\item Recall that the memory is accessible to all functions.
+
+\item Two choices: either pass the variables as extra parameters (becomes
+cumbersome if we also want to modify the variables in the outer scope), or
+store the variables in globally accessible memory, and pass pointers to them.
+
+\item Allocation can happen on the stack, but should be symmetric, on return
+the local variable corresponding to the memory cell must reloaded.
+
+\item Allocation of passed variables can happen in blocks, and the pointers can
+be offset from the beginnings of these blocks.
+
+\item A block of memory that holds all the memory-resident variables of a
+function is called an \emph{environment}.
+
+\item A pointer to the environment is called a \emph{static link}, as the link
+to the return address is often called the \emph{dynamic link}.
+
+\item The environemnts from outer scopes form a linked list connected by static
+links.
+
+\item Accessing elements higher up thus requires multiple (possibly distant)
+memory accesses.
+
+\end{itemize}
+
+\section{Functions as Parameters}
+
+\begin{itemize}
+
+\item Unlike in C, in Pascal it is not sufficient to pass the address of a
+function to pass a function parameter, we may need to include the environment
+as well.
+
+\item A functional parameter is a pair of a function address and a static link,
+called a \emph{closure} or a \emph{thunk}.
+
+\item \emph{Closure conversion}: translation to use explicit closures.
+
+\item In Pascal, functions are \emph{not} first-class citizens, as functional
+values cannot be returned and stored (only passed as parameter), the
+environment and closure can be stored on the stack, i.e. there is no need for
+the closure once the callee returns.
+
+\end{itemize}
+
+\section{First-class functions}
+
+\begin{itemize}
+
+\item First-class functions disallow the allocation of closures on the stack,
+and disallow the allocation of variables stored in the closure on the stack, we
+\emph{must use the heap}, as with first-class functions closures can outlive
+the lifetime of the enclosing function.
+
+\item The lifetime of a closure can be hard to predict, and therefore languages
+that allow functions as first-class citizens typically use automatic memory
+management.
+
+\item However, such languages typically have other properties that can make the
+lifetime of a closure predictible in certain cases.
+
+\end{itemize}
+
+\section{Dynamic scoping}
+
+\begin{itemize}
+
+\item Every variable has a global stack, as the runtime enters a function body,
+the value for the variable is pushed on the stack (perhaps altered during
+function execution), as the runtime exits a function body, the variable stack
+is popped, and the previous value of the variable is restored.
+
+\item There is no need for environments and closures (I guess this is why good
+old Lisp had dynamic scoping, successors of Lisp use static scoping).
+
+\item This has pitfalls, if you pass a reference to a value, that reference may
+no longer point to the same value on dereference. Likewise, referencing a
+variable in the outer scope, may well reference a completely different
+variable. This disallows e.g. continuations.
+
+\end{itemize}
+
+\section{Functional programming languages}
+
+\begin{itemize}
+
+\item A functional PL is a PL where the primary control structure is a function
+call.
+
+\item Typically functions are first-class citizens, but assignment is
+restricted through an adequate type system.
+
+\item A pure functional PL disallows destructive assignment.
+
+\item Impure functional languages
+
+\begin{itemize}
+
+\item If there are no limitations on assignment, we cannot make optimization to
+the above closures. 
+
+\item However, in e.g. SML we cannot assign to variables after creation, but we
+can assign to references after creation; so variables can be freely copied
+without fear of change.
+
+\item More complex structures (e.g. tuples) are still allocated on the heap
+however.
+
+\end{itemize}
+
+\item Pure functional languages
+
+\begin{itemize}
+
+\item No assignments, no side effects.
+
+\item Two calls with the same arguments will lead to the same value, leading to
+a reduced number of function calls. 
+
+\item We can also rearrange the order of evaluation if this is deemed beneficial.
+
+\end{itemize}
+
+\item Lazy functional languages
+
+\begin{itemize}
+
+\item Postpone evaluation of parameters until its value is needed.
+
+\item Call-by-name: reevaluate the parameter \emph{every} time it is needed.
+
+\item Algol 60 used call-by-name for parameters (but not initialisation), it
+was impure so different reevaluation lead to different values, this exploited.
+
+\item Call-by-name is implemented by transforming all parameters into
+parameterless functions, and evaluating the thunk when needed.
+
+\item If the parameter is itself a variable, no need to wrap it one more time
+(eta reduction in lambda calculus).
+
+\item Call-by-need: reduces the number of reevaluations, by replacing the
+variable with an evaluated closure once it has been computed once, this can be
+added automatically as a wrapper to function in the closure.
+\end{itemize}
+
+\item Strictness analysis is used to reduce some of the overhead: if the value
+is guaranteed to be used in an expression, it is evaluated from the get go
+(call-by-value). See \referToFigure{strictness}.
+
+\includeFigure[scale=0.5]{strictness}{Strictness}
+
+\begin{itemize}
+
+\item We say that $x$ is strict in $f$, if $x$ is definitely needed to evaluate
+$f$.
+
+\end{itemize}
+
+\end{itemize}
+
+\section{Optimisations for Function Calls}
+
+\begin{itemize}
+
+\item Function calls impose overhead.
+
+\item Inlining
+
+\begin{itemize}
+
+\item Completely eliminate the overhead by inlining the body instead of the
+call.
+
+\item Beware of variable capture, a calling function $f$ uses a local $x$,
+while the called function $g$ uses a global $x$. By scoping rules, this will
+make $x$ in $g$ refer to the local variable in $f$ if we perform trivial
+inlining.
+
+\item Instead, we define a function $g'$, rename all variables in $f$ and $g'$,
+inline $g'$, and remove it from the source text.
+
+\item For languages, where function definitions can be nested, we need to
+rename the entire declaration hierarchy.
+
+\item One must take care, as inlining the same function multiple times may lead
+to larger programs, larger function bodies may lead to more spilling.
+
+\item Typically, only small function are inlined.
+
+\item Another problem is small recursive functions, inlining them in the caller
+is generally wasteful, but inlining them in themselves can reduce the overhead
+considerably.
+
+\end{itemize}
+
+\item Tail-call optimization
+
+\begin{itemize}
+
+\item The value returned is the result of a function call. (Between the call
+and the return there may be unconditional jumps.)
+
+\item Typically can only be done at the IL or assembly level.
+
+\item No live variables need to be stored in the caller-saves registers, only
+the return adress is interesting.
+
+\item No need to read the return value into a local variable, only to store it
+back in the return register.
+
+\item Free the stack and restore callee saves registers before the final
+function call, but beware of where the return address is saved, perhaps it
+cannot be restored quite yet.
+
+\item We can then promote the return address of the current function as the
+return address for the called function.
+
+\item These changes imply that the return address is either at the top of the
+stack, or in the link register as we are ready to perform the jump, the jump is
+therefore a bare bones jump.
+
+\item Tail-call optimization is important in language without loop control
+structures. FPL's typically fill caller-saves registers first, this enables the
+bare bones jump implementation as discussed above. 
+
+\end{itemize}
+
+\item Tail-recursion optimization
+
+\begin{itemize}
+
+\item Further optimization is applicable if the calle is the same function as
+the current.
+
+\item We can omit the callee saves register in the recursive calls, as they are
+already adequately saved.
+
+\item The same goes for allocating stack space for local variables.
+
+\item And hence the parts of the prologue and epilogue moving the arguments
+back and forth between adequate registers and the local variables.
+
+\item Tail-recursion optimization (unlike tail-call optimization), can be
+performed at the IL level.
+
+\end{itemize}
+
+\end{itemize}
+
+\section{Exceptions}
+
+\begin{itemize}
+
+\item Exceptions allow a function to return across multiple calls to an
+exception handler.
+
+\item Two constructs in the language: raise and handle.
+
+\item A raise passes control to the most recently active handler.
+
+\item A handler is active if it has been entered, but not exited.
+
+\item Tagged return
+
+\begin{itemize}
+
+\item In addition to the result, we return a value indicating whether all is
+well or an exception was raised.
+
+\item The indicator can be a dedicated register or a dedicated memory location.
+
+\item Considerable overhead as this has to be added to the call sequence of a
+function call, it even touches tail-call and tail-recursion optimization.
+
+\item This feature affects program that do not use this feature --- not so
+nice.
+
+\item Static analysis can allow to detect whether a function at can raise an
+exception or not, and in the latter case the check can be eliminated.
+
+\item However, even adding the check to only the functions that \emph{might}
+raise an exception is not ideal.
+
+\item An alternative is to have an exception handler address in addition to the
+return address; if a callee has no exception handler, one is added.
+
+\end{itemize}
+
+\item Stack unwinding
+
+\begin{itemize}
+
+\item Attempt to move the cost only to those programs that raise exceptions.
+
+\item For each return adrres on the stack of stack frames, an address for the
+local handler in the callee (if any) is added.
+
+\item When an exception occurs, the stack frames are observed in reverse order,
+and the stack restored accordingly.
+
+\item There is (litle) no cost to exceptions if they don't occur, but if they
+do, it depends on the depth of the stack.
+
+\end{itemize}
+
+\item Handler stack
+
+\begin{itemize}
+
+\item On entry to an exception handler, the live variables are stored, along
+with the address of the handled on the dedicated handler stack.
+
+\item When leaving the exception handler, the handler is popped off the handler
+stack.
+
+\item When an exception is encountered, the exception handler is directly
+available, and all the live variables before entering the handler can be
+restored.
+
+\item Whether this method is better than stack unwinding depends on the
+frequency of handlers contra frequency of exceptions occuring. When
+implementing Prolog, a handler stack is to be preferred.
+
+\end{itemize}
+
+\end{itemize}

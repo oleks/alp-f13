@@ -79,6 +79,12 @@ expand _ v = v
 
 \subsection{Most-general unifier}
 
+The most-general unifier implementation follows the implementation suggested in
+\cite[Figure 7.3 (page 134)]{torben}. The only exception is the unification of
+two variables. If either variable is in the subsitution already, then the
+substitution is returned, otherwise one of the variables inserted, pointing to
+the other.
+
 \begin{code}
 mgu :: Theta -> [(Value, Value)] -> Maybe Theta
 mgu e vs = foldlM mgu1 e vs
@@ -122,6 +128,17 @@ zipOrFail _ _ = Nothing
 
 \subsection{Renaming}
 
+Renaming in general also follows the algorithm specified in \cite[Figure 7.4
+(page 135)]{torben}. All heap variables are prefixed with \texttt{\_G} and
+postfixed by unique integer index. As already mentioned, such a transformation
+enforces no limitations on the user of the interpreter.
+
+Although introduction of a state monad might have made renaming (and later
+resolution) a little more readable, this is currently avoided. State is
+therefore encoded in the parameters and return values of these functions. It
+consists of an integer and a substitution. The integer is the index of the
+next free variable.
+
 \begin{code}
 rename :: (Int, Theta) -> [Value] -> ((Int, Theta), [Value])
 rename s [] = (s, [])
@@ -149,6 +166,35 @@ rename1 s v = (s,v)
 \end{code}
 
 \subsection{Resolution}
+
+Resolution in general also follows the algorithm specified in \cite[Figure 7.4
+(page 135)]{torben}. The return value of the \texttt{match} function indicates
+whether the result was a result of a cut, or not. This is supposed to aid the
+implementation of cuts, but fails to do so.
+
+Perhaps the most interesting part is the last clause of the function. Here we
+rename the head of a clause, and attempt to unify it with the current
+proposition of the goal. If this succeeds, we rename the right-hand side of the
+clause and expand it. Renaming is done with the substitution obtained from
+renaming the head of the clause, i.e. we rename such that quantification is
+maintained. Expansion is done with the substitution obtained from the
+unification, i.e. we expand all variables on the right-hand side to the
+corresponding values in the current goal.
+
+We then continue to attempt matching the goal to the remaining clauses.
+Depending on whether a cut is encountered or not, we may match again the
+remaining clauses, or merely clauses who's heads cannot unify with the current
+head, i.e. other \emph{predicates}. This functionality however has \emph{not}
+been completed. Cuts therefore have no effect.
+
+Equality is handled in a straight-forward way, if the values can be unified, we
+continue to match the remaining goals with the obtained substitution.
+
+The introduction of a cut is also handled in a straight-forward way. We match
+the remaining goals and ``raise'' a cut exception.
+
+Again, although a state monad could have aided readability, this was avoided in
+the current implementation.
 
 \begin{code}
 data ResolverState
@@ -178,14 +224,14 @@ match p @ (Module pcs) (i, e) (g:gs) ((Clause l r) : cs) =
             Nothing -> (Regular, [])
     (x2, es2) = match p (i, e) (g:gs) cs
     (x3, es3) = match p (i, e) (g:gs) (removePredicate l cs)
-  in case x1 of
-    Regular -> case x2 of
-      Regular -> (Regular, es1 ++ es2)
-      CutException -> (CutException, es1 ++ es2)
-    CutException -> case x3 of
-      Regular -> (CutException, es1 ++ es3)
-      CutException -> (Regular, es3)
+  in (Regular, es1 ++ es2) -- TODO: do cut magic.
+\end{code}
 
+The following function will remove all clauses from a list of clauses who's
+heads unify successfully with the given value. This is used to cut to other
+predicates in a list of clauses.
+
+\begin{code}
 removePredicate :: Value -> [Clause] -> [Clause]
 removePredicate p (c @ (Clause l _) : cs) =
   let cs' = removePredicate p cs
@@ -193,49 +239,4 @@ removePredicate p (c @ (Clause l _) : cs) =
       Just _ -> cs'
       Nothing -> c : cs'
 removePredicate _ [] = []
-
 \end{code}
-
-\ignore{
-\begin{code}
-{-
-l_0 = Symbol "p" [Variable "A"]
-r_0 = [Symbol "q" [Variable "A"]
-l_1 = Symbol "append" [
-    Symbol "cons" [Variable "A", Variable "As"],
-    Variable "Bs",
-    Symbol "cons" [Variable "A", Variable "Cs"]
-  ]
-r_1 = [Symbol "append" [Variable "As", Variable "Bs", Variable "Cs"]]
-g = Symbol "append" [
-    Variable "As",
-    Symbol "nil" [],
-    Symbol "cons" [
-      Symbol "1" [],
-      Symbol "nil" []
-    ]
-  ]
-
-((i1_2, e1_2), l1_2) = rename1 (i1_1, empty) l_0
-Just e2_2 = mgu1 e2_1 (r1_1, l1_2)
-
-(_, [r1_2]) = rename (i1_2, e1_2) r_0
-
-((i1_3, e1_3), l1_3) = rename1 (i1_2, empty) l_1_0
-Just e2_3 = mgu1 e2_2 (r1_2, l1_3)
-
-(_, [r1_3]) = rename (i1_3, e1_3) r_1_0
-
-((i1_4, e1_4), l1_4) = rename1 (i1_3, empty) l_1_0
-Just e2_4 = mgu1 e2_3 (r1_3, l1_4)
-
-(_, [r1_4]) = rename (i1_4, e1_4) r_1_0
-
-((i1_5, e1_5), l1_5) = rename1 (i1_4, empty) l_0_0
-Just e2_5 = mgu1 e2_4 (r1_4, l1_5)
-
-(_, [r1_5]) = rename (i1_5, e1_5) r_0_0
--}
-\end{code}
-}
-

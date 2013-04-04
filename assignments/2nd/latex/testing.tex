@@ -1,41 +1,58 @@
 \section{Testing}\label{section:testing}
 
-The Fibonacci program in \cite[Figure 3.3]{torben} has been tested to produce
-the same resulting $in[i]$ and $out[i]$ tests as presented in \cite[Figure
-3.5]{torben}. In particular, the code was tested to work in GHCi, version 7.6.2
-on the supplied source code file \texttt{fib.il}, which produced the following
-output:
+Uploaded with the code is a \texttt{Makefile}, implying that you should be able
+to compile the code using \texttt{make}, and obtain an executable
+\texttt{./Pl}. You can then run the interpreter by specifying a path to a Pl
+module as a command line argument, e.g. \texttt{./Pl append.pl}.
+
+Uploaded with the code is a series of \texttt{.pl} files.
+
+\begin{itemize}
+
+\item \texttt{simple.pl} a very simplistic module for testing backtracking, and
+simple goal resolution.
+
+\item \texttt{append.pl} corresponds to the module in the assignment text; it
+was tested with various queries, including \texttt{append(As, Bs,
+cons(1,cons(2,cons(3,nil))))}. 
+
+\item \texttt{listappend.pl} corresponds to \texttt{append.pl}, but with list
+notation; it was tested with various queries, including \texttt{append(As, Bs,
+[1,2,3])}.
+
+\end{itemize}
+
+Below is a sample \texttt{listappend.pl}:
 
 \begin{verbatim}
-$ ghci -Wall
-GHCi, version 7.6.2: http://www.haskell.org/ghc/  :? for help
-Loading package ghc-prim ... linking ... done.
-Loading package integer-gmp ... linking ... done.
-Loading package base ... linking ... done.
-Prelude> :l Liveness.lhs 
-[1 of 3] Compiling Grammar          ( Grammar.lhs, interpreted )
-[2 of 3] Compiling Parser           ( Parser.lhs, interpreted )
-[3 of 3] Compiling Liveness         ( Liveness.lhs, interpreted )
-Ok, modules loaded: Parser, Liveness, Grammar.
-*Liveness> analyseFile "fib.il"
-Loading package array-0.4.0.1 ... linking ... done.
-Loading package deepseq-1.3.0.1 ... linking ... done.
-Loading package containers-0.5.0.0 ... linking ... done.
-fib(n)
-[
-1   a := 0                        a n       n
-2   b := 1                        a b n     a n
-3   z := 0                        a b n z   a b n
-4   LABEL loop                    a b n z   a b n z
-5   IF n = z THEN end ELSE body   a b n     a b n z
-6   LABEL body                    a b n     a b n
-7   t := a + b                    b n t     a b n
-8   a := b                        a n t     b n t
-9   b := t                        a b n     a n t
-10  n := n - 1                    a b n     a b n
-11  z := 0                        a b n z   a b n
-12  GOTO loop                     a b n z   a b n z
-13  LABEL end                     a         a
-14  RETURN a                                a
-]
+$ make
+ghc -Wall --make -o Pl Main.lhs
+[1 of 4] Compiling Grammar          ( Grammar.lhs, Grammar.o )
+[2 of 4] Compiling Parser           ( Parser.lhs, Parser.o )
+[3 of 4] Compiling Resolver         ( Resolver.lhs, Resolver.o )
+
+Resolver.lhs:219:6: Warning: Defined but not used: `x1'
+
+Resolver.lhs:225:6: Warning: Defined but not used: `x2'
+
+Resolver.lhs:226:6: Warning: Defined but not used: `x3'
+
+Resolver.lhs:226:10: Warning: Defined but not used: `es3'
+[4 of 4] Compiling Main             ( Main.lhs, Main.o )
+Linking Pl ...
+oleks@mir[~/diku/alp-f13/assignments/2nd/src]
+$ ./Pl listappend.pl 
+append([], Bs, Bs).
+append([A|As], Bs, [A|Cs]) :- append(As, Bs, Cs).
+?- append(As,Bs,[1,2,3]).
+As = []
+Bs = [1,2,3] ;
+As = [1]
+Bs = [2,3] ;
+As = [1,2]
+Bs = [3] ;
+As = [1,2,3]
+Bs = [] ;
+no
+?- 
 \end{verbatim}
