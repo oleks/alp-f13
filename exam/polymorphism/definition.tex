@@ -1,0 +1,588 @@
+\tableofcontents
+
+\begin{description}[\setleftmargin{20pt}\setlabelstyle{\bf}\breaklabel]
+
+\item [lol]
+
+\end{description}
+
+\section{Motivation}
+
+\begin{itemize}
+
+\item Having multiple forms
+
+\begin{itemize}
+
+\item A polymorphic function can be applied to arguments of different types.
+
+\item A polymorphic type can be constructed to different conrete types.
+
+\end{itemize}
+
+\item The types can be static or dynamic.
+
+\item Types of polymorphism:
+
+\begin{description}[\setleftmargin{20pt}\setlabelstyle{\bf}\breaklabel]
+
+\item [Ad-hoc polymorphism] A function name is associated with a finite set of
+conrete types. This is \emph{overloading}.
+
+\item [Interface polymorphism] A type is identified with a finite set of
+operations. Any value that supports these operations can be associated with the
+type. Aka. \emph{duck-typing}. The operations are identified by the same name
+(perhaps parameters), but are unrelated otherwise.
+
+\item [Subtype polymorphism] Types are arranged in a hierarchy. A name
+associated with a type, can be of any subtype.
+
+\item [Parametric polymorphism] A name takes \emph{type parameters}, given a
+concrete type parameter, a concrete type for the name is instanciated.
+
+\end{description}
+
+\item It is possible to combine these (e.g. Java Generics and interfaces).
+
+\item Interactions between the various kinds can have overwhelming complexity,
+e.g. C++ Templates.
+
+\end{itemize}
+
+\section{Ad-hoc polymorphism}
+
+\begin{itemize}
+
+\item Oldest. FORTRAN in the 50s had an overloaded $+$. Had implicit
+conversions from integer to real. Standard ML is more strict than that.
+
+\item The operator can be described a set of types and implementations.
+
+\item For SML:
+
+\begin{align}
++:=\{&(int,int) \rightarrow int:\ \text{integer addition},\\
+  & (real,real) \rightarrow real:\ \text{floating-point addition}\}
+\end{align}
+
+\item The implicit conversion complicates the matters slightly, but it is still
+a set of types to operations, conversion is not a separate step.
+
+\item The return type may be necessary to determine which implementation to
+pick, e.g. polymorphic read:
+
+\begin{align}
+read:=\{& string \rightarrow int:\ \text{read an integer}, \\
+  & string \rightarrow real:\ \text{read a floating-point number}\}
+\end{align}
+
+\item If the choice is not unique, languages have a default, or report an
+error.
+
+\item Most languages let only the built-ins be polymorphic, some allow the user
+to define overloaded functions.
+
+\end{itemize}
+
+\subsection{Overloading in Dynamically Typed Languages}
+
+\begin{itemize}
+
+\item The above required for the types to be known at compile time.
+
+\item No types present at compile time.
+
+\item Clearly, the choice of implementation happens at runtime.
+
+\item A type descriptor typically carries a list of pointers to
+implementations.
+
+\item This allows to increase the degree of polymorphism of an operator at
+runtime.
+
+\item Multiargued functions explode in complexity, as every type of every
+argument must be matched against every type of every other argument.
+
+\item If the polymorphic functions are fixed, the type descriptor can be an
+array of pointers to the implementations, making things faster.
+
+\item If overloaded operators can be added at runtime, this cannot be done. It
+is possible to use a hash-table then, but due to possible collisions this isn't
+as optimal as the array implementation.
+
+\end{itemize}
+
+\section{Interface Polymorphism}
+
+\begin{itemize}
+
+\item An interface is a specification of a set of operators.
+
+\item A type is said to implement an interface if it has operators meeting the
+specification.
+
+\item Implementation for different types are disjoint.
+
+\item An interface is a collection of ad-hoc polymoprhic functions with
+possible constructors and field descriptors.
+
+\item Interfaces defined explicitly (Java, Haskell), or implicitly
+(dynamically-typed, duck-typed) languages.
+
+\end{itemize}
+
+\subsection{Explicit interfaces}
+
+\begin{itemize}
+
+\item Job for the type checker.
+
+\item Java (defining the type) vs. Haskell (extending an already defined type).
+
+\item Otherwise proceed as above.
+
+\end{itemize}
+
+\subsection{Implicit interfaces}
+
+\begin{itemize}
+
+\item A type is deemed correct if it supports all operations performed on the
+value.
+
+\item We check whether the operation we're about to perform is defined on the
+value at hand at runtime.
+
+\end{itemize}
+
+\section{Subtype Polymorphism}
+
+\begin{itemize}
+
+\item Types are ordered via a subtype relation $s \prec t$, where $s$ is a
+subtype of $t$, i.e. $s$ it is less general than $t$.
+
+\item Typically the following partial order:
+
+\begin{description}[\setleftmargin{20pt}\setlabelstyle{\bf}]
+
+\item [Reflexive] $s \prec s$, a type is its own subtype.
+
+\item [Anti-symmetric] $s \prec t \wedge t \prec s \Rightarrow s = t$, two
+mutually subtypical types are the same type.
+
+\item [Transitive] $s \prec t \wedge t \prec u \Rightarrow s \prec u$.
+
+\end{description}
+
+\item Anywhere a value of type $t$ is used, we can use use a value of type $s$.
+
+\item Types can be considered as sets of values, here $s \prec t \Rightarrow
+Val(t) \subseteq Val(t)$.
+
+\item Whatever you can do with $t$, you can do with $s$.
+
+\item Numeric subtyping is typically combined with implicit conversions.
+
+\item A simple application is range subtypes (Pascal).
+
+\item Object class in Java, integer (wrt. ranges) in Pacscal, such a common
+supertype is called the \emph{top element} of the subtype relation.
+
+\item Neither Pascal nor Java have a top element of all types.
+
+\item Record types can also be parts of subtype hierarchies. A supertype has
+fewer, likewise named and typed field.
+
+\item Likewise for sumtypes, the more alternatives, the higher up in the
+hierarchy. A sumtype with no alternative is a supertype of all sum types.
+
+\item Conversion in $C$, always safe from subtype to supertype in unions, but
+not in records, as fields appear in no guaranteed order.
+
+\end{itemize}
+
+\subsection{Functions and Mutable Variables}
+
+\begin{itemize}
+
+\item A value declared to be of type $t$, may well be a value of type $s$.
+
+\item A function $s \rightarrow t$ should be able to take a value of type of
+$u$ s.t. $u \prec s$, and return a value of type $t$.
+
+\item Although no dynamic check is required, dynamic dispatch may be.
+
+\item Downcasting (the other way) is typically allowed, but requires a runtime
+check; this is a type of dynamic typing, so not pure static typing.
+
+\item We can store a value of type $s$ in a variable of type $t$ if $s \prec
+t$; intuitively a mutable variable is a function of the type $t \rightarrow t$.
+
+\end{itemize}
+
+\subsection{Conditional expressions}
+
+\begin{itemize}
+
+\item $c?e_1:e_2$, $e_1$ and $e_2$ must have a common supertype.
+
+\item Objects in Java and integers in Pascal always have one.
+
+\item There may be several common supertypes.
+
+\item Consider the hiearchy in \referToFigure{hier}.
+
+\includeFigure[scale=0.5]{hier}{A subtype hierarchy.}
+
+\item Let $e_1$ and $e_2$ have types $C$ and $D$, common supertypes: $A$ and
+$T$. $A$ gives more precise information.
+
+\item In general, choose the smallest common supertype.
+
+\item A problem arises if we have multiple inheritance, see
+\referToFigure{multiple-inheritance}.
+
+\includeFigure[scale=0.5]{multiple-inheritance}{Multiple inheritance.}
+
+\item $C$ and $D$ have two smallest common supertypes. While we could pick
+either one, picking one rather than the other can lead to type errors further
+on. The type checker could fail or chose the first unique smallest common
+supertype.
+
+\end{itemize}
+
+\subsection{Functional Values and Reference Values}
+
+\begin{itemize}
+
+\item A functional type $u \rightarrow v$ is a subtype of $s \rightarrow t$ if
+$s \prec u$ and $v \prec t$. In place of $s$ we can put any supertype, in place
+of $t$ the function can return any subtype.
+
+\item We say that the subtype relation is contravariant on function types
+(opposite of covariant).
+
+\item Reference to a value of type $s$ has type $\mathtt{ref}\ s$.
+
+\item Any value we place into the reference is of type $s$ and any value we
+take out is of type $s$ (think of copying in C++).
+
+\item Acts as a box, we can put in and take out values of type $s$.
+
+\item Neither $s \prec t$ not $t \prec s$ can hold.
+
+\item $\mathtt{ref}\ s$ and $\mathtt{ref}\ t$ are in a subtype relation iff
+$s=t$.
+
+\item $\mathtt{ref}\ s$ is similar to $s \rightarrow s$, as above $u
+\rightarrow v$ iff $s \prec u$ and $v \prec s$, i.e. $s=u=v$.
+
+\item This is a problem for container classes. These are generalisations of
+references, so a set of $s$ is a subtype of a set of $t$ iff $s=t$.
+
+\item Hampering to generic collections. The usual solution is to use downcasts
+(to a top element).
+
+\item Parametric polymorphism is in order.
+
+\end{itemize}
+
+\section{Parametric Polymorphism}
+
+\begin{itemize}
+
+\item Example: identity function. C to C++ templates.
+
+\item In C, two different functions (type-wise) cannot have the same name, in
+C++ types also have a say in the function signature.
+
+\item C++ templates allow constant and type parameters.
+
+\item There is mild type inference of the type parameters.
+
+\item In general, template instanciation (\texttt{identity<int>}) will create
+an instance of \texttt{identity} specialized for \texttt{int}.
+
+\item C++ does not typecheck a declaration, but typechecks each instance. So
+it's a macro, the difference being that an instance is added somewhere once,
+instead of hot-placed where the macro is called.
+
+\item Templates therefore can be added as a preprocessor to a compiler. 
+
+\item Since parameters can be numbers, and there can be user-defined ad-hoc
+functions, the templates themselves cannot be typechecked. This allows
+restrictions on the types which cannot be described in C++:
+
+\begin{verbatim}
+template <typename T>
+T max(T x, T y)
+{
+  if (x<y) return y; else return x;
+}
+\end{verbatim}
+
+\end{itemize}
+
+\subsection{Uniform Parametric Polymorphism}
+
+\begin{itemize}
+
+\item If there are no ad-hoc polymorphic functions, no run-time inspection, and
+template parameters can only be typenames, the template itself can typechecked.
+
+\item The idea is to create an instance for some set of types and typecheck that.
+
+\item We initialize a new type for each type parameter, and allow only those
+operations on those types that are allowed on \emph{all types}.
+
+\item We instanciate the function with those parameters and type check that.
+
+\item The reason is simple, we have no a priori knowledge of which type will be
+passed, but if it works for the top element of all possible types, all is well.
+
+\item Just because this check fails, doesn't mean that some types, e.g. only
+those that are ever applied to the template, actually can be computed on.
+
+\item With this (uniform parametric polymorphism), all instances of the
+template will be equivalent.
+
+\item Sharing an implementation however requires that all possible values of ll
+possible concrete type parameters are equisized.
+
+\item Instead, we could operate on pointers to these objects (allowing the
+sharing of an implementation), this is called \emph{boxed representation}.
+
+\item SML and Haskell do this. There is overhead added due to following
+pointers and managing memory for the black boxes. The C++ compiler will
+generate one function for each data size. So does MLton for SML.
+
+\end{itemize}
+
+\section{Polymorphic Type Inference}
+
+\begin{itemize}
+
+\item Many languages spare the programmer of declaring types. Some use dynamic
+types, others use static (possibly polymorphic) types. The compiler infers
+these.
+
+\item Consider
+
+\begin{verbatim}
+fun length [] = 0
+  | length (x :: xs) = 1 + length xs
+\end{verbatim} 
+
+\item This has the type schema \texttt{'a list -> int}, i.e. $\forall\alpha:
+\mathtt{list}\tuple{\alpha} \rightarrow \mathtt{int}$.
+
+\item We can instanciate this like this:
+
+$$\p{\forall\alpha: \mathtt{list}\tuple{\alpha} \rightarrow
+\mathtt{int}}\tuple{\mathtt{string}} = \mathtt{list}\tuple{\mathtt{string}}
+\rightarrow \mathtt{int}$$
+
+\item As the polymorphism is uniform, we need not check for correctness wrt.
+declaration of \texttt{length}.
+
+\item Inference:
+
+\begin{itemize}
+
+\item Replace all constructors with unknown instances. Unbound type variables
+are not the same as type parameters. \texttt{A} and \texttt{B} are type
+variables referring to the same type parameter.
+
+\begin{verbatim}
+fun length ([] : list<A>) = (0 : int)
+  | length (x (:: : B*list<B> -> list<B>) xs)
+    = (1 : int) (+ : int*int -> int) (length xs)
+\end{verbatim}
+
+\item We expand what we already know:
+
+\begin{verbatim}
+fun length ([] : list<A>) = 0 : int
+  | length (((x : B) (:: : B*list<B> -> list<B>) (xs : list<B>)) : list<B>)
+    = ((1 : int) (+ : int*int -> int) ((length (xs : list<B>)) : int)) : int
+\end{verbatim}
+
+\end{itemize}
+
+\item This gives us the types \texttt{list<A>->int} and \texttt{list<B>->int}
+for the two clauses. They must evaluate to the same type, so we unify them to
+get the substitution \texttt{A=B}.
+
+\item We \emph{generalise} the type \texttt{B} to type parameter $\alpha$, and
+get the above final type.
+
+\subsection{Hindley-Milner Algorithm}
+
+\begin{itemize}
+
+\item Sketch 
+
+\begin{itemize}
+
+\item \emph{Type environments}, bind functions, operators and constructors to
+types (or type schemata), gradually extended.
+
+\item A global set of bindings of type variables to types.
+
+\item A \emph{unification} algorithm that takes two types as arguments, and
+either updates the global bindings, so the two types become equal, or fails.
+
+\item A function that \emph{instanciates} type schema with new type names.
+
+\item A function that \emph{generalises} a type to a type schema.
+
+\end{itemize}
+
+\item A type is constructed of type variables and type constructors.
+
+\end{itemize}
+
+\item Instanciation: if a looked up name is a type schema, it is instaciated
+with fresh type variables.
+
+\item Unification: an unsuccessful unification means there is a type error.
+
+\begin{itemize}
+
+\item As an aside update the global type environment.
+
+\item If either type is bound, unify with the other's bound type.
+
+\item If either type is unbound, bind to the other type, if it is not contained
+in it.
+
+\item If both are the same constructor, unify the arguments of the
+constructors.
+
+\item Otherwise, fail.
+
+\item We also perform an occurs check to avoid circular types of the form
+$t=(s*s)$, as unifying $s$ and $t$ here would create a type that has no finite
+values.
+
+\end{itemize}
+
+\item Generalisation: when a type is found, it is generalised to a type schema,
+and the name is now bound to this type schema.
+
+\begin{itemize}
+
+\item Care must be taken to generalise functions appropriately. For every
+function we instanciate a local environment, but perform inference with the
+extended environment. Generalisation then replaces all unbound variables in the
+extended and do not occur in the local environment. The ungeneralised variable
+may be bound by some other declaration in the program.
+
+\end{itemize}
+
+\item Recursive declarations
+
+\begin{itemize}
+
+\item If a $f$ is recursive, we need the type of $f$ to find $f$.
+
+\item When the recursive call occurs, we let it's type be unknown until the
+type is ready to be unified with $f$, we call it $F$.
+
+\item For mutually recursive functions, we find the type of all of them before
+unifying and generalising.
+
+\item So we must group mutually recursive functions; in SML this is explicit,
+in Haskell this is inferred from the call graph.
+
+\item One problem with the Hindley-Milner algorithm is the following:
+
+\begin{verbatim}
+fun f (a,0) = a
+  | f (a,n) = #1 f((a,a),n-1)
+\end{verbatim}
+
+\item Unification is done before generalisation, so all recursive calls call
+the same instance.
+
+\item Allowing recursive calls to use a different instance than the calling
+instance, makes type inference undecidable.
+
+\item Such functions are known as \emph{polymorphically recursive}, and are
+rarely of use in practice.
+
+\item (Perhaps some optimization can be performed to remove polymorphic
+recursion to begin with.)
+
+\item Some languages allow such functions once their types are explicitly
+stated, as checing a polymorphically recursive functions against its schema is
+decidable.
+
+\item The absense of polymorphic recursion, ensures that a function is used at
+a finite number of instances. This means the compiler always terminates, unlike
+the C++ compiler. The number of instances can still be large.
+
+\end{itemize}
+
+\item Polymorphic Value Declarations
+
+\begin{itemize}
+
+\item Consider \texttt{val x = []}. This is all good and dandy.
+
+\item Consider \texttt{val y = ref []}. FAIL!
+
+\item The problem is that the dereference of $y$ is valid in any context, even
+to a apend an integer to a list of strings. \texttt{(y := 3::!y; "a"::!y)}
+
+\item Instead of type schemas, we may let the type variables prevail until
+further notice. SML originally made the distinction, but this was deemed too
+complex. This was replaced by \emph{value polymorphism}: a value declaration is
+generalised only if the right-hand side is \emph{non-expansive} (no
+\texttt{ref} constructor, no function applications except inside function
+abstractions, or local function definitions).
+
+\item The culprit is the assignable reference.
+
+\end{itemize}
+
+\end{itemize}
+
+\subsection{Structural Equivalence}
+
+\begin{itemize}
+
+\item For type inference to work, the type of a value must only depend on how
+it is built and used.
+
+\item Two values built the same way and used the same way have the same type
+--- \emph{structureal equivalence}.
+
+\item \emph{Name equivalence}: types are identified by name, not structure.
+
+\item SML, Haskell and other Hindley-Milner languages use structural
+equivalence, OO langauges typically use name equivalence.
+
+\item Name equivalence limits type inference, so it is only local.
+
+\end{itemize}
+
+\subsection{Constrained Type Variables}
+
+\begin{itemize}
+
+\item The SML reduction to one type variable was not completely true, there are
+\emph{unrestricted} and \emph{equality} types.
+
+\item SML has the $=$ operator that works on all types (except real and exn).
+
+\item If $=$ is applied to an unrestricted type, the type becomes an equality
+type.
+
+\item This restricts unrestricted types where an equality type will be
+necessary.
+
+\item Java and Haskell extend these abilities in each their own way.
+
+\end{itemize}
