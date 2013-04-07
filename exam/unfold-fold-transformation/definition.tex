@@ -1,0 +1,593 @@
+\tableofcontents
+
+\begin{description}[\setleftmargin{20pt}\setlabelstyle{\bf}\breaklabel]
+
+\item [lol]
+
+\end{description}
+
+\section{Motivation}
+
+\begin{itemize}
+
+\item Generalization of \emph{partial evaluation}, \emph{deforestation},
+\emph{tupling}, \emph{supercompilation}, etc.
+
+\end{itemize}
+
+\section{Language}
+
+\begin{itemize}
+
+\item Subset of Haskell.
+
+\item A function is a series of rules.
+
+\item A a rule has the form $f\ p = e$, where $f$ is an fid, $p$ is a pattern,
+and $e$ is an expression.
+
+\item Linear patterns: no variable can occur more than once in a pattern.
+
+\item Rules non-overlapping, i.e. for any $f\ p_1 = e_1$ and $f\ p_2 = e_2$,
+$p_1$ and $p_2$ cannot be unified.
+
+\item Assume type inference.
+
+\item Lets are expanded: \texttt{f x = let y = g x in h(x, y, y)} becomes
+\texttt{f x = l (g x, x); l (y, x) = h(x, y, y)}.
+
+\item A value is is a an expression built from constructors and tuples.
+
+\item We run a program by calling a function with values as arguments, and
+evaluating the call to a value.
+
+\item This may fail due to nontermination or inexhaustive pattern matching.
+
+\end{itemize}
+
+\section{Evaluation}
+
+\begin{itemize}
+
+\item Evaluation is a series of function applications.
+
+\item The order of evaluation does not matter, it only affects termination, but
+not the result.
+
+\item A \emph{substitution} is a set of bindings of variables to expressions.
+
+\item A binding is written $x\setminus e$, where $x$ is the variable and $e$ is
+the expression.
+
+\item A substitution is a list of such bindings s.t. $x_i = x_j \rightarrow i =
+j$ and $x_i$ does not occur in $e_i$ or $e_j$. 
+
+\item This means that a substitution is idempotent, so the order of evaluation
+indeed does not matter.
+
+\item We combine two non-overlapping substitutions using the operator $+$.
+
+\item We apply a substitution $\Theta$ to $e$ ($e\Theta$) as shown in
+\referToFigure{substitution}.
+
+\includeFigure[scale=0.7]{substitution}{Substitution.}
+
+\item We obtain substitutions by matching a pattern to an expression, as shown
+in \referToFigure{pattern-matching}.
+
+\includeFigure[scale=0.7]{pattern-matching}{Pattern matching.}
+
+\item Assume no variable occurs more than once in $p$, and no variable in $p$
+occurs in $e$.
+
+\item If we have a call $f e1$ and a rule $f\ p = e2$ s.t. $p\lhd
+e=\Theta\neq\mathbf{fail}$, then $f e1$ is replaced by $e2\Theta$.
+
+\item The rule may additionally be renamed to ensure that it shares no
+variables with $e1$, as these variables are bound anew, and are seperate from
+the other bindings.
+
+\item As function rules do not overlap, at most one ruls is matched, but none
+could be matched as well.
+
+\item We repeat function application until no calls remain in the expression.
+
+\end{itemize}
+
+\section{Transformation steps}
+
+\subsection{Unfolding}
+
+\begin{itemize}
+
+\item This is function application.
+
+\item Unfolding should only happen for calls that have exactly one matching
+rule in the function definition.
+
+\end{itemize}
+
+\subsection{Definition}
+
+\begin{itemize}
+
+\item The addition of a new (uniquely named) function to the program.
+
+\end{itemize}
+
+\subsection{Extraction}
+
+\begin{itemize}
+
+\item Replacing one ore more subexpressions in an expression by a variable.
+
+\item This requires a let binding, which is short for a function call.
+
+\end{itemize}
+
+\subsection{Folding}
+
+\begin{itemize}
+
+\item Function application in reverse: replace one or more subexpressions by a
+function call.
+
+\item We keep the original definition around, so as to fold a part of a
+transformed rule with the original; this allows us to generate new recursive
+functions.
+
+\item One folding step should be preceeded by at least one unfolding step to
+avoid circular definitions.
+
+\end{itemize}
+
+\subsection{Special casing}
+
+\begin{itemize}
+
+\item Replace a pattern variable with a destructor, replace uses of the
+variable with adequate constructors in the rule expression.
+
+\item Add rules for other constructors to ensure same coverage.
+
+\end{itemize}
+
+\section{Transforming a program}
+
+\begin{itemize}
+
+\item Apply a series of the above transformations, taking care not to change
+the meaning of the program.
+
+\item We often add function definitions iteratively.
+
+\item Consider the program
+
+\begin{verbatim}
+data List a = Nil | Cons (a, List a)
+
+append (Nil, ys) = ys
+append (Cons (x, xs), ys) = Cons (x, append (xs, ys))
+\end{verbatim}
+
+\item Add the function definition
+
+\begin{verbatim}
+append3 (xs, ys, zs) = append (append (xs, ys), zs)
+\end{verbatim}
+
+\item Note that it would be more efficient to perform the inner append call in
+the second argument as it is the first list that gets iteratively destructed by
+\texttt{append}.
+
+\item Perform the following in order:
+
+\begin{enumerate}
+
+\item Specal-case:
+
+\begin{verbatim}
+append3 (Nil, ys, zs) = append (append (Nil, ys), zs)
+append3 (Cons (q, qs), ys, zs) =
+  append (append (Cons (q, qs), ys), zs)
+\end{verbatim}
+
+\item Unfold inner \texttt{append}:
+
+\begin{verbatim}
+append3 (Nil, ys, zs) = append (ys, zs)
+append3 (Cons (q, qs), ys, zs) =
+  append (Cons (q, append (qs, ys), zs)
+\end{verbatim}
+
+\item Unfold outer \texttt{append}:
+
+\begin{verbatim}
+append3 (Nil, ys, zs) = append (ys, zs)
+append3 (Cons (q, qs), ys, zs) =
+  Cons (q, append (append (qs, ys), zs)
+\end{verbatim}
+
+\item Fold (using the \emph{original} definition of \texttt{append3}):
+
+\begin{verbatim}
+append3 (Nil, ys, zs) = append (ys, zs)
+append3 (Cons (q, qs), ys, zs) = Cons (q, append3(qs, ys, zs))
+\end{verbatim}
+
+\end{enumerate}
+
+\item This is more efficient.
+
+\end{itemize}
+
+\section{Strategies for Unfold-fold Transformations}
+
+\begin{itemize}
+
+\item Look for \emph{configurations}, and use \emph{extraction} to make
+definitions for these configurations.
+
+\begin{description}[\setleftmargin{20pt}\setlabelstyle{\bf}\breaklabel]
+
+\item [Partial evaluation] A configuration is a function call with one or more
+arguments; we reduce the number of arguments by eliminating constant
+parameters.
+
+\item [Deforestation] A configuration is a series of nested function calls; we
+reduce the creation intermediate data (or stack space), e.g. \texttt{append3}.
+
+\item [Tupling] A configuration is a series of nonnested function calls; we
+reduce the traversal of the same data structure.
+
+\item [Super(vised)compilation] Any expression that contains multiple calls; we
+make all of the above optimizations, and prove certain properties about
+functions: compose $f$ with some property function $q$, if the result reduces
+to $\top$, then the property always holds for $f$.
+
+\end{description}
+
+\item When do we apply unfolding and specal-casing? (Rules of thumb):
+
+\begin{enumerate}
+
+\item We look for subexpressions that can be unfolded int the defined/extracted
+rules. If none exist, e.g. due to inexhaustive pattern matching, we
+special-case a variable $x$ in the expression.
+
+\item Any call that is defined by multiple rules, but only one rule matches the
+call, is unfolded. Additionally, no parameter expression containing a function
+call may be duplicated or eliminated during unfolding. TODO: hmm..
+
+\item When no further unfolding can be applied, the defined/extracted rules are
+folded with their (most recent) originals.
+
+\item If the above steps produce a new definition, repeat. 
+
+\end{enumerate}
+
+\item Example \texttt{append3}, but no new definitions were generated.
+
+\item Infinite sequences possible, so we keep track of the unfoldings,
+considering their implications on size and complexity.
+
+\item There can be a infinite number of configurations, this is detected as
+above, and fixed by generalisation, i.e. considering subconfigurations.
+
+\item We define a partial order on the values that can be generated, $\unlhd$,
+e.g. their cardinality.
+
+\item A sequence that decreases the size of a tree cannot possible be infinite.
+
+\item This still leaves many trees as possibly infinite, so instead we use
+\emph{homomorphic embedding} as shown in \referToFigure{homomorphic-embedding}.
+
+\includeFigure[scale=0.7]{homomorphic-embedding}{Homomorphic embedding.}
+
+\item That is, $s\unlhd t$ is $s$ can be obtained from $t$ by e.g. deleting
+constructors or function calls (increased complexity), replacing the tuple by
+one of its constituents, or defining variables.
+
+\end{itemize}
+
+\section{Extensions and Issues}
+
+\begin{itemize}
+
+\item What about additional language features?
+
+\end{itemize}
+
+\subsection{Numbers}
+
+\begin{itemize}
+
+\item Number constants as constructors and arithmetic operations as functions.
+
+\item Include arithmetic simplification.
+
+\item $m\unlhd n$ iff $m\leq n$ for natural numbers; negatives and fractions
+are tough however.
+
+\item Another option is piano numbers, perhaps with binary representation.
+
+\end{itemize}
+
+\subsection{Higher-order functions}
+
+\begin{itemize}
+
+\item Straight-forward.
+
+\end{itemize}
+
+\subsection{Code Duplication and Elimination}
+
+\begin{itemize}
+
+\item When unfolding, parameters may be duplicated, this increases computation
+time.
+
+\item These may further be eliminated by folding, but this can alter program
+behaviour.
+
+\item A non-terminating program may terminate, or an erroneous program may
+produce a non-error result.
+
+\item We restrict unfolding to not duplicate or eliminate function calls.
+
+\end{itemize}
+
+\subsection{Side effects}
+
+\begin{itemize}
+
+\item The transformations can alter the order of evaluation.
+
+\item If side effects are allowed, this may cause an altered program behaviour.
+
+\item Parameters may therefore not produce or depend on side effects in
+general.
+
+\item Monadic operators ensure the order of side effects regardless of the
+order of evaluation.
+
+\end{itemize}
+
+\subsection{Exceptions}
+
+\begin{itemize}
+
+\item Similar to side effects.
+
+\end{itemize}
+
+\subsection{Accumulating Parameters}
+
+\begin{itemize}
+
+\item Don't typically lend themselves to unfold-fold transformations.
+
+\item It is not possible (using the above techniques) to optimize two nested
+calls to list reverse with an accumulating parameter.
+
+\end{itemize}
+
+\section{Examples of Transformations}
+
+\begin{itemize}
+
+\item \texttt{append3} was an example of deforestation.
+
+\end{itemize}
+
+\subsection{Tupling}
+
+\begin{itemize}
+
+\item Combine several calls that recurse over the same structure.
+
+\item Can sometimes reduce execution time from exponential to linear.
+
+\item Consider the (exponential-time) Fibonacci function:
+
+\begin{verbatim}
+data Int = Z | S Int
+
+add (Z, y) = y
+add (S x, y) = S (add (x, y))
+
+fib Z = Z
+fib (S Z) = (S Z)
+fib (S (S x)) = add (fib x, fib (S x))
+\end{verbatim}
+
+\item We add \texttt{fib2}:
+
+\begin{verbatim}
+fib (S (S x)) = add (fib2 x)
+fib2 x = (fib x, fib (S x))
+\end{verbatim}
+
+\item Specah-case:
+
+\begin{verbatim}
+fib2 Z = (fib Z, fib (S Z))
+fib2 (S y) = (fib (S y), fib (S (S y)))
+\end{verbatim}
+
+\item Unfold all calls to \texttt{fib} for which only one rule matches: 
+
+\begin{verbatim}
+fib2 Z = (Z, S Z)
+fib2 (S y) = (fib (S y), add (fib y, fib (S y))
+\end{verbatim}
+
+\item Extract in the second rule:
+
+\begin{verbatim}
+fib2 (S y) =
+  let (p,q) = (fib y, fib (S y))
+  in (q, add (p, q))
+\end{verbatim}
+
+\item Fold the second rule with the original definition:
+
+\begin{verbatim}
+fib2 (S y) = let (p, q) = fib2 y in (q, add (p, q))
+\end{verbatim}
+
+\item This has a linear number of additions.
+
+\end{itemize}
+
+\subsection{Partial evaluation}
+
+\begin{itemize}
+
+\item Specialize programs by eliminating the constant parameters.
+
+\item Configurations are function calls with variables and values.
+
+\item Consider
+
+\begin{verbatim}
+data Int = Z | S Int
+ackermann (Z, n) = S n
+ackermann (S m, Z) = ackermann (m, S Z)
+ackermann (S m, S n) = ackermann (m, ackermann (S m, n))
+\end{verbatim}
+
+\item We want to specialize by fixing the first parameter to $3$:
+
+\begin{verbatim}
+ackermann3 n = ackermann (S (S (S Z)), n)
+\end{verbatim}
+
+\item Special case on \texttt{n}:
+
+\begin{verbatim}
+ackermann3 Z = ackermann (S (S (S Z)), Z)
+ackermann3 (S p) = ackermann (S (S (S Z)), S p)
+\end{verbatim}
+
+\item Unfold both rules:
+
+\begin{verbatim}
+ackermann3 Z = ackermann (S (S Z), S Z)
+ackermann3 (S p) = ackermann (S (S Z), ackermann (S (S (S Z)) p))
+\end{verbatim}
+
+\item Unfold first rule a couple more times:
+
+\begin{verbatim}
+ackermann3 Z = S (S (S (S (S Z))))
+ackermann3 (S p) = ackermann (S (S Z), ackermann (S (S (S Z)), p))
+\end{verbatim} 
+
+\item Fold the second rule with the original definition:
+
+\begin{verbatim}
+ackermann3 Z = S (S (S (S (S Z))))
+ackermann3 (S p) = ackermann (S (S Z), ackermann3 p)
+\end{verbatim}
+
+\item We define \texttt{ackermann2} and fold with it:
+
+\begin{verbatim}
+ackermann3 Z = S (S (S (S (S Z))))
+ackermann3 (S p) = ackermann2 (ackermann3 p)
+ackermann2 x = ackermann (S (S Z), x)
+\end{verbatim}
+
+\item Special-case and unfold a couple times:
+
+\begin{verbatim}
+ackermann2 Z = S (S (S Z)
+ackermann2 (S q) = ackermann (S Z, ackermann (S (S Z), q))
+\end{verbatim}
+
+\item Define \texttt{ackermann1} and fold with it:
+
+\begin{verbatim}
+ackermann2 Z = S (S (S Z)
+ackermann2 (S q) = ackermann1 (ackermann2 q)
+ackermann1 y = ackermann (S Z, y)
+\end{verbatim} 
+
+\item Special-case and unfold a couple times:
+
+\begin{verbatim}
+ackermann1 Z = S (S Z)
+ackermann1 (S r) = S (ackermann1 r)
+\end{verbatim}
+
+\item If the original function (\texttt{ackermann}) is not used, it can be
+removed from the program text entirely.
+
+\end{itemize}
+
+\subsection{Supercompilation}
+
+\begin{itemize}
+
+\item Supercompilation is a wise combination of deforestation, tupling and
+partial evaluation.
+
+\item In addition to property proving, we can prove program equivalence, if
+they optimize to the same program.
+
+\item We give an example of proof by supercompilation.
+
+\item Consider 
+
+\begin{verbatim}
+data Int = Z | S Int
+add (Z, y) = y
+add (S x, y) = S (add (x, y))
+\end{verbatim}
+
+\item To prove by supercompilation we add the following definitions
+(associativity, $0+y=y+0$):
+
+\begin{verbatim}
+equal (Z, Z) = True
+equal (Z, S y) = False
+equal (S x, Z) = False
+equal (S x, S y) = equal (x, y)
+test x = equal (x, add (x, Z))
+\end{verbatim}
+
+\item Special-case:
+
+\begin{verbatim}
+test Z = equal (Z, add (Z, Z))
+test (S p) = equal (S p, add (S p, Z))
+\end{verbatim}
+
+\item Repeatedly unfold:
+
+\begin{verbatim}
+test Z = True
+test (S p) = equal (p, add (p, Z))
+\end{verbatim}
+
+\item Fold with the original \texttt{test}:
+
+\begin{verbatim}
+test Z = True
+test (S p) = test p
+\end{verbatim}
+
+\item It is clear that this, if it terminates will yield \texttt{True}. The
+value is monotonically decreasing so the test terminates.
+
+\end{itemize}
+
+\subsection{Generalisation}
+
+\begin{itemize}
+
+\item None of the above required it.
+
+\end{itemize}
